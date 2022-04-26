@@ -18,11 +18,11 @@ train = 0.95
 scale_min = 0.25
 scale_max = 1.00
 
-random.seed(12345)
+random.seed(1345)
 
 #is_train = random.choices([0, 1], weights=[(1 - train), train], k=12802)
 
-def apply_transforms(mask, x0, x1, y0, y1):
+def apply_transforms(img, mask, x0, x1, y0, y1):
 
     # random scale 
 
@@ -30,18 +30,43 @@ def apply_transforms(mask, x0, x1, y0, y1):
     x0 = x0 * scale_factor
     x1 = x1 * scale_factor
     y0 = y0 * scale_factor
-    y1 = x1 * scale_factor
+    y1 = y1 * scale_factor
+
+    x0 = int(x0)
+    x1 = int(x1)
+    y0 = int(y0)
+    y1 = int(y1)
 
     dsz = int(320 * scale_factor)
 
     mask = cv2.resize(mask, (dsz, dsz), scale_factor, scale_factor, interpolation=cv2.INTER_CUBIC)
+    img = cv2.resize(img, (dsz, dsz), scale_factor, scale_factor, interpolation=cv2.INTER_CUBIC)
 
     shape = mask.shape[0]
 
-    # always r, b
-    mask = cv2.copyMakeBorder(mask, 0, (320 - shape), 0, (320 - shape), cv2.BORDER_CONSTANT, value=255)
+    border_w = 320 - shape
+    border_h = 320 - shape
 
-    return mask, x0, x1, y0, y1
+    rand_w = random.randint(0, border_w)
+    rand_h = random.randint(0, border_h)
+
+
+
+    border_l = rand_w
+    border_r = 320 - shape - rand_w
+    border_t = rand_h
+    border_b = 320 - shape - rand_h
+
+    x0 += border_l
+    x1 += border_l
+    y0 += border_t
+    y1 += border_t
+
+    # always r, b
+    mask = cv2.copyMakeBorder(mask, border_t, border_b, border_l, border_r, cv2.BORDER_CONSTANT, 255 )
+    img = cv2.copyMakeBorder(img, border_t, border_b, border_l, border_r , cv2.BORDER_CONSTANT, 255)
+
+    return img, mask, x0, x1, y0, y1
 
 for image_loc in os.listdir(BASE_IMAGE_DIR):
 
@@ -58,14 +83,6 @@ for image_loc in os.listdir(BASE_IMAGE_DIR):
         la_in += 1
     
 
-    #x, y, wc, hc
-    #cls = 0
-    #x = ((x0 + x1) / 2) / 320
-    #y = ((y0 + y1) / 2) / 320
-    #w = (abs(x1 - x0)) / 320 
-    #h = (abs(y1 - y0)) / 320
-
-
     x0 = int((x - (w / 2)) * 320)
     x1 = int((x + (w / 2)) * 320)
     y0 = int((y - (h / 2)) * 320)
@@ -73,7 +90,7 @@ for image_loc in os.listdir(BASE_IMAGE_DIR):
     
     img = cv2.imread(os.path.join(BASE_IMAGE_DIR, image_loc))
     
-    #cv2.rectangle(img, (x0, y0), (x1, y1), (0, 255, 0), 2)
+    #
 
     cv2.imwrite('test.jpg',img)
 
@@ -92,7 +109,7 @@ for image_loc in os.listdir(BASE_IMAGE_DIR):
 
         print(mask.shape)
         # apply transforms here
-        mask, x0, x1, y0, y1 = apply_transforms(mask, x0, x1, y0, y1)
+        img, mask, x0, x1, y0, y1 = apply_transforms(img, mask, x0, x1, y0, y1)
 
         print(mask.shape)
 
@@ -100,7 +117,7 @@ for image_loc in os.listdir(BASE_IMAGE_DIR):
 
         f = img - res
         f = np.where(f == 0, bg_image, f).astype(np.uint8)
-
+        cv2.rectangle(f, (x0, y0), (x1, y1), (0, 255, 0), 2)
         cv2.imwrite('output.jpg', f)
         break
         """
