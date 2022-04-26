@@ -3,27 +3,28 @@ import easyocr
 import cv2
 import random
 
-IMAGE_DIR = 'images'
-IMG_DIR = 'img'
-LABEL_DIR = 'labels'
-TRAIN_DIR = 'train'
-VAL_DIR = 'val'
-BG_DIR = 'synth_bg'
-
-reader = easyocr.Reader(['en'])
+BASE_IMAGE_DIR = 'base-images'
+LABELS_DIR = 'base-labels'
+TRAIN_DIR = os.path.join('data', 'train')
+VAL_DIR = os.path.join('data', 'val')
+BG_DIR = 'backgrounds'
 
 im_in = 0
 la_in = 0
 it = 0
 
 train = 0.95
-is_train = random.choices([0, 1], weights=[(1 - train), train], k=12802)
+#is_train = random.choices([0, 1], weights=[(1 - train), train], k=12802)
 
 for image_loc in os.listdir(IMAGE_DIR):
 
     print(f'{it} images processed')
 
+    bbox = 
+
     result = reader.readtext(os.path.join(IMAGE_DIR, image_loc))
+
+    # read the 
     im_in += 1
     if result != []:
 
