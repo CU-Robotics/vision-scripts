@@ -50,8 +50,6 @@ def apply_transforms(img, mask, x0, x1, y0, y1):
     rand_w = random.randint(0, border_w)
     rand_h = random.randint(0, border_h)
 
-
-
     border_l = rand_w
     border_r = 320 - shape - rand_w
     border_t = rand_h
@@ -90,77 +88,60 @@ for image_loc in os.listdir(BASE_IMAGE_DIR):
     
     img = cv2.imread(os.path.join(BASE_IMAGE_DIR, image_loc))
     
-    #
-
-    cv2.imwrite('test.jpg',img)
-
     # for each image synth_image_loc in synth dir, make a synth image and add the labels to label set
     i = 0
 
-    for bg_image_loc in os.listdir(BG_DIR):
+    for j in range(10):
 
-        bg_image = cv2.imread(os.path.join(BG_DIR, bg_image_loc))
+        for bg_image_loc in os.listdir(BG_DIR):
 
-        small_green = np.array([0, 100, 0])     ##[R value, G value, B value] -> [B, G, R]
-        big_green = np.array([100, 255, 235])
+            bg_image = cv2.imread(os.path.join(BG_DIR, bg_image_loc))
 
-        mask = cv2.inRange(img, small_green, big_green)
+            small_green = np.array([0, 100, 0])     ##[R value, G value, B value] -> [B, G, R]
+            big_green = np.array([100, 255, 235])
+
+            mask = cv2.inRange(img, small_green, big_green)
+
+            # apply transforms here
+            new_img, mask, n_x0, n_x1, n_y0, n_y1 = apply_transforms(img, mask, x0, x1, y0, y1)
+
+            res = cv2.bitwise_and(new_img, new_img, mask=mask)
+
+            f = new_img - res
+            f = np.where(f == 0, bg_image, f).astype(np.uint8)
+
+            #cv2.rectangle(f, (x0, y0), (x1, y1), (0, 255, 0), 2)
+            #cv2.imwrite('output.jpg', f)
+    
+            if im_in == 1001:
+                cv2.rectangle(f, (n_x0, n_y0), (n_x1, n_y1), (0, 255, 0), 2)
+                cv2.imwrite('output.jpg', f)
 
 
-        print(mask.shape)
-        # apply transforms here
-        img, mask, x0, x1, y0, y1 = apply_transforms(img, mask, x0, x1, y0, y1)
 
-        print(mask.shape)
+            new_x = ((n_x0 + n_x1) / 2) / 320
+            new_y = ((n_y0 + n_y1) / 2) / 320
+            new_w = (abs(n_x1 - n_x0)) / 320 
+            new_h = (abs(n_y1 - n_y0)) / 320
 
-        res = cv2.bitwise_and(img, img, mask=mask)
-
-        f = img - res
-        f = np.where(f == 0, bg_image, f).astype(np.uint8)
-        cv2.rectangle(f, (x0, y0), (x1, y1), (0, 255, 0), 2)
-        cv2.imwrite('output.jpg', f)
-        break
-        """
-            try:
-            bg = cv2.imread(os.path.join(BG_DIR, bg_image_loc))
-
-            bg[x0:x1, y0:y1] = img[x0:x1, y0:y1]
-
-            if is_train[i] == 1:
-                save_loc = str(i) + "_" + image_loc
-                if 'jpeg' in image_loc:
-                    label_name = save_loc.replace('.jpeg', '.txt')
-                else:
-                    label_name = save_loc.replace('.jpg', '.txt')  
-
-                cv2.imwrite(os.path.join('train', 'images', save_loc), bg)
-            
-                with open(os.path.join('train', 'labels', label_name), 'w+') as f:
-                    f.write(f'{cls} {y} {x} {h} {w}\n')
-
+            save_loc = str(i) + "_" + image_loc
+            if 'jpeg' in image_loc:
+                label_name = save_loc.replace('.jpeg', '.txt')
             else:
-                save_loc = str(i) + "_" + image_loc
-                if 'jpeg' in image_loc:
-                    label_name = save_loc.replace('.jpeg', '.txt')
-                else:
-                    label_name = save_loc.replace('.jpg', '.txt')  
+                label_name = save_loc.replace('.jpg', '.txt')  
 
-                cv2.imwrite(os.path.join('valid', 'images', save_loc), bg)
-            
-                with open(os.path.join('valid', 'labels', label_name), 'w+') as f:
-                    f.write(f'{cls} {y} {x} {h} {w}\n')
+            cv2.imwrite(os.path.join('data', 'train', 'images', save_loc), f)
+        
+            with open(os.path.join('data', 'train', 'labels', label_name), 'w') as f:
+                f.write(f'0 {new_y} {new_x} {new_h} {new_w}\n')
+
             i += 1
             it += 1
-        except Exception as e:
-            print(e)
-            pass
-        """
 
-        if im_in % 50 == 0:
-            print(f'{im_in} images processed')
-
-        im_in += 1
-    
+            if im_in % 50 == 0:
+                print(f'{im_in} images processed')
+            im_in += 1
+        
 
 print(f'{im_in} images found, {la_in} labels loaded') 
 #print(f'{synth} synthetic images made')
