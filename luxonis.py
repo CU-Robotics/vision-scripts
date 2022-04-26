@@ -1,11 +1,4 @@
 #! /usr/bin/env python3
-"""
-	Project:
-			buffnet detector
-	Author: Mitchell D Scott
-	Description:
-		Detects and displays images
-"""
 import os
 import sys
 import cv2
