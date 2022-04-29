@@ -1,4 +1,11 @@
 #! /usr/bin/env python3
+"""
+	Project:
+			buffnet detector
+	Author: Mitchell D Scott
+	Description:
+		Detects and displays images
+"""
 import os
 import sys
 import cv2
@@ -158,10 +165,10 @@ class DepthAI_Device:
     # If the ols is used properly these will always be defined
 
         self.FPS = 30
-        self.iou = 0.3
+        self.iou = 0.2
         self.image_size = 320
-        self.model_file = 'apr22_2.blob'
-        self.confidence = 0.2
+        self.model_file = 'apr26.blob'
+        self.confidence = 0.1
         model_dir = './'
         model_path = os.path.join(model_dir, self.model_file)
 

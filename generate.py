@@ -71,15 +71,18 @@ for image_loc in os.listdir(BASE_IMAGE_DIR):
     # open the corresponding label
     bbox_path = os.path.join(LABELS_DIR, image_loc.replace('.jpg', '.txt'))
     bbox = None
-    with open(bbox_path, 'r') as f:
-        bbox = f.readline().split(' ')
-        _, x, y, w, h, = bbox
-        x = float(x)
-        y = float(y)
-        w = float(w)
-        h = float(h)
-        la_in += 1
-    
+    try:
+        with open(bbox_path, 'r') as f:
+            bbox = f.readline().split(' ')
+            _, x, y, w, h, = bbox
+            x = float(x)
+            y = float(y)
+            w = float(w)
+            h = float(h)
+            la_in += 1
+    except UnicodeDecodeError as e:
+        continue
+        
 
     x0 = int((x - (w / 2)) * 320)
     x1 = int((x + (w / 2)) * 320)
@@ -108,7 +111,13 @@ for image_loc in os.listdir(BASE_IMAGE_DIR):
             res = cv2.bitwise_and(new_img, new_img, mask=mask)
 
             f = new_img - res
-            f = np.where(f == 0, bg_image, f).astype(np.uint8)
+
+            f = np.where(f == 0, bg_image, f)
+
+            if f[0][0][0] == None:
+                break
+
+            f = f.astype(np.uint8)
 
             #cv2.rectangle(f, (x0, y0), (x1, y1), (0, 255, 0), 2)
             #cv2.imwrite('output.jpg', f)
@@ -116,8 +125,6 @@ for image_loc in os.listdir(BASE_IMAGE_DIR):
             if im_in == 1001:
                 cv2.rectangle(f, (n_x0, n_y0), (n_x1, n_y1), (0, 255, 0), 2)
                 cv2.imwrite('output.jpg', f)
-
-
 
             new_x = ((n_x0 + n_x1) / 2) / 320
             new_y = ((n_y0 + n_y1) / 2) / 320
@@ -133,7 +140,7 @@ for image_loc in os.listdir(BASE_IMAGE_DIR):
             cv2.imwrite(os.path.join('data', 'train', 'images', save_loc), f)
         
             with open(os.path.join('data', 'train', 'labels', label_name), 'w') as f:
-                f.write(f'0 {new_y} {new_x} {new_h} {new_w}\n')
+                f.write(f'0 {new_x} {new_y} {new_w} {new_h}\n')
 
             i += 1
             it += 1
