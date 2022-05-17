@@ -1,16 +1,6 @@
 import matplotlib
 import matplotlib.pyplot as plt
 
-import argparse
-import threading
-import time
-from pathlib import Path
-import blobconverter
-import cv2
-import depthai as dai
-import numpy as np
-from depthai_sdk import FPSHandler
-
 import os
 import random
 import io
@@ -26,34 +16,15 @@ from xml.dom.minidom import parse, parseString
 import xml.etree.ElementTree as ET
 import matplotlib.patches as patches
 
-video_path = 'video.avi'
-model_path = 'apr29.blob'
-
-detections = []
-
-pipeline = dai.Pipeline()
-
-det_nn= pipeline.create(dai.node.NeuralNetwork)
-det_nn.setBlobPath(model_path)
-det_nn.setNumPoolFrames(4)
-det_nn.input.setBlocking(False)
-det_nn.setNumInferenceThreads(2)
-
-det_xin = pipeline.create(dai.node.XLinkIn)
-det_xin.setStreamName("det_input")
-det_xin.out.link(det_nn.input)
-
-xout_nn = pipeline.create(dai.node.XLinkOut)
-xout_nn.setStreamName("det_out")
-xout_nn.input.setBlocking(False)
-
-det_nn.out.link(xout_nn.input)
-
-cap = cv2.VideoCapture(video_path)
-
 import torch
+from torchsummary import summary
 import torchvision
-import torchvision.transforms as transforms
+from torchvision import transforms
+
+import os
+import pathlib
+import cv2
+import time
 
 def xywh2xyxy(x):
     # Convert nx4 boxes from [x, y, w, h] to [x1, y1, x2, y2] where xy1=top-left, xy2=bottom-right
@@ -71,7 +42,6 @@ def non_max_suppression(prediction, conf_thres=0.1, iou_thres=0.6, merge=False, 
     Returns:
              detections with shape: nx6 (x1, y1, x2, y2, conf, cls)
     """
-    prediction = torch.from_numpy(prediction)
     if prediction.dtype is torch.float16:
         prediction = prediction.float()  # to FP32
 
@@ -182,60 +152,52 @@ def draw_boxes(frame, boxes, total_classes):
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.3, (255, 255, 255), 1)
     return frame
 
-def to_planar(arr: np.ndarray, shape: tuple) -> np.ndarray:
-    return cv2.resize(arr, shape).transpose(2, 0, 1).flatten()
 
+
+model = torch.hub.load('ultralytics/yolov5', 'custom', 'apr29.pt', autoshape=True) 
+
+# Use cv2 to run predictions for a video file, outputs out.avi, which has bounding box predictions
+# you will have to paste video.avi for this part, which can be found on the google drive
+
+cap = cv2.VideoCapture('video.avi')
+fps = cap.get(cv2.CAP_PROP_FPS)
+fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
+writer = cv2.VideoWriter("video_annotated_old.avi", fourcc, fps, (320, 320), True)
 i = 0
 
+t = transforms.ToTensor()
 
-fourcc = cv2.VideoWriter_fourcc('m', 'j', 'p', 'g')
-fps = cap.get(cv2.CAP_PROP_FPS)
-out = cv2.VideoWriter('video_annotated.avi', fourcc , fps, (320,320), True)
+while cap.isOpened():
 
+    ret, frame = cap.read()
 
-with dai.Device(pipeline) as device:
+    if not ret:
+        break
+     
+    frame = cv2.resize(frame, dsize=(320, 320), interpolation=cv2.INTER_CUBIC)
 
-    q_nn_input = device.getInputQueue(name='det_input', maxSize=4, blocking=True)
-    q_nn = device.getOutputQueue(name='det_out', maxSize=4, blocking=True)
+    frame_np = np.array(frame)
 
-    while cap.isOpened():
-        check, frame = cap.read()
+    x = t(frame_np).unsqueeze(0)
 
-        if check:
-            lic_frame = dai.ImgFrame()
-            lic_frame.setData(to_planar(frame, (320, 320)))
-            lic_frame.setWidth(320)
-            lic_frame.setHeight(320)
-            q_nn_input.send(lic_frame)
-            
-            det = q_nn.get()
+    pred = model(x)
 
-            output = np.array(det.getLayerFp16("output"))
-            cols = output.shape[0] // 6300
-            output = np.reshape(output, (6300, cols))
-            output = np.expand_dims(output, 0)
+    boxes = non_max_suppression(
+            pred, 0.30, 0.45)
+    
+    boxes = boxes[0]
 
-            total_classes = cols - 5
+    if boxes is not None:
+        frame = draw_boxes(frame, boxes.numpy(), 9)
 
-            frame = cv2.resize(frame, (320, 320))
+    writer.write(frame)
 
-            boxes = non_max_suppression(
-                    output)
-            
-            boxes = boxes[0]
+    if i % 60 == 0:
+        print(f'second {i // 60}')
 
-            if boxes is not None:
-                frame = draw_boxes(frame, boxes.numpy(), 9)
+    if i == 2000:
+        break
 
-            out.write(frame)
-            
-            if i % 60 == 0:
-                print(f'second: {i // 60} detections: {boxes}')
-
-            i += 1
-
-            if i == 2000:
-                break
-
+    i += 1
 cap.release()
-out.release()
+writer.release()
